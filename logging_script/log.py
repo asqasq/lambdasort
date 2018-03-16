@@ -3,6 +3,8 @@ import psutil
 import ifcfg
 import threading
 import pickle
+import sys
+
 
 class TimeLog:
     def __init__(self, enabled=True):
@@ -33,6 +35,7 @@ def get_net_bytes(rxbytes, txbytes, rxbytes_per_s, txbytes_per_s, cpu_util):
 
 
 if __name__ == '__main__':
+    log_file = sys.argv[1]
     # start collecting network data
     iface = ifcfg.default_interface()
     rxbytes = [int(iface['rxbytes'])]
@@ -52,6 +55,5 @@ if __name__ == '__main__':
              'rx': rxbytes_per_s,
              'tx': txbytes_per_s,
              'cpu': cpu_util}
-	log_file = 'test.log'
 	with open(log_file, 'w') as f:
 	    pickle.dump(log, f)
