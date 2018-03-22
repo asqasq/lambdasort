@@ -52,8 +52,8 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
 	print "Saving logs..."
 	log = {'started': timelogger.start,
-             'rx': rxbytes_per_s,
-             'tx': txbytes_per_s,
-             'cpu': cpu_util}
+               'rx': rxbytes_per_s,
+               'tx': txbytes_per_s,
+               'cpu': cpu_util}
 	with open(log_file, 'w') as f:
 	    pickle.dump(log, f)
