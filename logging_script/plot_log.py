@@ -18,10 +18,9 @@ for i in xrange(num_cpu):
 #plt.ylabel('')
 plt.suptitle('CPU utilization (' + log_file + ')')
 plt.show()
-
+plt.savefig(log_file+'-cpu.png')
 
 log_rx = np.array(log['rx'])*8.0/1e9 #Gb/s
-print log_rx
 fig = plt.figure()
 plt.subplot(2,1,1)
 plt.plot(log_rx)
@@ -34,3 +33,4 @@ plt.title('tx Gb/s')
 
 plt.suptitle('Throughput (' + log_file + ')')
 plt.show()
+plt.savefig(log_file+'-network.png')
