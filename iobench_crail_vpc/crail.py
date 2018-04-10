@@ -9,6 +9,7 @@ import socket
 import struct
 import errno
 from subprocess import call, Popen
+import subprocess
 
 PORT = 2345
 HOSTNAME = "localhost"
@@ -35,6 +36,21 @@ def setup_env(crail_home_path):
                              "jars/log4j.properties:" + crail_home_path + "jars/crail-dispatcher-1.0.jar"
   print "CLASSPATH = " , os.environ["CLASSPATH"]
   return
+
+
+def launch_iobench():
+  setup_env("/var/task/")
+  setup_dirs()
+  result = []
+  p = Popen(["./bin/crail", "iobench", "-t", "write", "-f", "/tmp10", "-s", "1048576", "-k", "100"], stdout=subprocess.PIPE)
+  #p = Popen(["./bin/crail", "iobench", "-t", "readSequential", "-f", "/tmp9", "-s", "1048576", "-k", "100"], stdout=subprocess.PIPE)
+  #p = Popen(["./bin/crail", "iobench", "-t", "createFile", "-f", "/tmp100s2", "-k", "100", "-w", "0"], stdout=subprocess.PIPE)
+  #p = Popen(["./bin/crail", "iobench", "-t", "getFile", "-f", "/tmp", "-s", "1024", "-k", "100000", "-w", "0", "-m", "false"], stdout=subprocess.PIPE)
+  #p = Popen(["./bin/crail", "iobench", "-t", "readRandom", "-f", "/tmp", "-s", "1024", "-k", "10000", "-w", "0", "-m", "false"], stdout=subprocess.PIPE)
+  result.append(p.communicate()[0])
+  return result
+
+
 
 # call this from lambda environment (working directory is /var/task)
 def launch_dispatcher_from_lambda():
@@ -186,3 +202,4 @@ def close(socket, ticket, p):
   p.kill()
 
   return data
+
