@@ -48,4 +48,6 @@ def lambda_handler(event, context):
     return 
 
 
-lambda_handler(0,0)
+#lambda_handler(0,0)
+p = crail.launch_dispatcher_microbench("/home/ec2-user/lambdasort/throughput_microbenchmark_ec2/")
+

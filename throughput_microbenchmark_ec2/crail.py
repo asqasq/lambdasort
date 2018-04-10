@@ -36,6 +36,15 @@ def setup_env(crail_home_path):
   print "CLASSPATH = " , os.environ["CLASSPATH"]
   return
 
+
+def launch_dispatcher_microbench(crail_home_path):
+  setup_env(crail_home_path)
+  p = Popen(["java", "-cp", crail_home_path + "/jars/*", 
+	         "-Dlog4j.configuration=file://" + crail_home_path + "/conf/log4j.properties", 
+		 "com.ibm.crail.dispatcher.CrailDispatcherBenchmark", "-k", "100", "-s", "1kfile", "-d", "runA"])
+  return p
+
+
 # call this from lambda environment (working directory is /var/task)
 def launch_dispatcher_from_lambda():
   setup_env("/var/task/")
