@@ -5,7 +5,7 @@ import botocore
 import sys
 
 def invoke_map_lambda(x, client):
-    f = "lambda_crail_throughput_crail_vpc"
+    f = "lambda_crail_throughput_cpp"
     config = botocore.config.Config(connect_timeout=330, read_timeout=330)
     client = None
     while not client:
@@ -26,21 +26,20 @@ def invoke_map_lambda(x, client):
 
 
 n = int(sys.argv[1])
+iter = 200
+datasize = 1024*1024
+#iter = 5000 #20000
+#datasize = 1024
+
+type = sys.argv[2]
+#type = 'write'
 max_p = 30
 pool = ThreadPool(max_p)
 
-#config_dict = {'connect_timeout': 330, 'read_timeout': 330}
-#config = botocore.client.Config(**config_dict)
-#config = botocore.config.Config(connect_timeout=330, read_timeout=330)
-#client = boto3.client('lambda', config=config)
-#client.meta.events._unique_id_handlers['retry-config-lambda']['handler']._checker.__dict__['_max_attempts'] = 0
-
-bucket_name = 'terasort-yawen'
-path = '1TB/'
 
 map_data_list = []
 for i in range(n):
-    map_d = {'id':str(i), 'n':str(n)}
+    map_d = {'id':str(i), 'n':str(n), 'iter':str(iter), 'datasize':str(datasize), 'type':type}
     map_d = json.dumps(map_d)
     map_data_list.append(map_d)
 

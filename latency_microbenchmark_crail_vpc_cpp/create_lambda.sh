@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 aws lambda create-function \
-    --function-name lambda_crail_latency_crail_vpc_cpp \
+    --function-name lambda_crail_latency_cpp \
     --region us-west-2 \
     --zip-file fileb://deploy.zip \
     --role arn:aws:iam::562930434285:role/pywren_exec_role_1 \

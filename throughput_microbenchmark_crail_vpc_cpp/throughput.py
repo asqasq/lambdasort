@@ -1,21 +1,39 @@
-import boto3
 import os
 import time
-import pickle
-import crail
+import pocket
 
 from rediscluster import StrictRedisCluster
 import threading
 import ifcfg
 import psutil
 
+def pocket_write(p, jobid, iter, src_filename):
+    for i in xrange(iter):
+        dst_filename = '/tmp'+'-'+str(i)
+        r = pocket.put(p, src_filename, dst_filename, jobid)
+        #if r != 0:
+        #    raise Exception("put failed: "+ dst_filename)
+
+def pocket_read(p, jobid, iter, src_filename):
+    for i in xrange(iter):
+        dst_filename = '/tmp'+'-'+str(i)
+        r = pocket.get(p, dst_filename, src_filename, jobid)
+        #if r != 0:
+        #    raise Exception("get failed: "+ dst_filename)
+        
+def pocket_lookup(p, jobid, iter):
+    for i in xrange(iter):
+        dst_filename = '/tmp'+'-'+str(i)
+        r = pocket.lookup(p, dst_filename, jobid)
+        #if r != 0:
+        #    raise Exception("lookup failed: "+ dst_filename)
+
 def lambda_handler(event, context):
     id = int(event['id'])
-    n = num_workers = int(event['n'])
-    
+    n = num_workers = int(event['n'])    
 
-    STOP = threading.Event()
     LOGS_PATH = 'logs-'+str(n)
+    STOP = threading.Event()
 
     class TimeLog:
         def __init__(self, enabled=True):
@@ -55,8 +73,6 @@ def lambda_handler(event, context):
             util = psutil.cpu_percent(interval=1.0)
             cpu_util.append(util)
 
-
-
     # start collecting network data
     iface = ifcfg.default_interface()
     rxbytes = [int(iface['rxbytes'])]
@@ -67,75 +83,42 @@ def lambda_handler(event, context):
     STOP.set()
     timelogger = TimeLog(enabled=True)
     get_net_bytes(rxbytes, txbytes, rxbytes_per_s, txbytes_per_s, cpu_util) 
-
-
-
-    # create a file of size (datasize)x1MB
-    iter = 100
-    datasize = 1 #MB
+    
+    # create a file of size (datasize) bytes
+    type = event['type']
+    iter = int(event['iter'])
+    datasize = int(event['datasize']) #bytes
     file_tmp = '/tmp/file_tmp'
     with open(file_tmp, 'w') as f:
-        text = 'a'*1024*1024*datasize 
+        text = 'a'*datasize 
         f.write(text)
 
-    # write to crail
-    p = crail.launch_dispatcher_from_lambda()
-    socket = crail.connect()
+    # connect to pocket
+    p = pocket.connect("10.1.129.91", 9070)
+    jobid = 'lambda3'
+    r = pocket.register_job(p, jobid) # works if return 0
+    if r != 0:
+        print "registration failed"
+        return
 
-    t0=time.time()
-    ticket = 1001
-    src_filename = file_tmp
-    for i in xrange(iter):
-        dst_filename = '/tmp'+str(id)+'-'+str(i)
-        r = crail.put(socket, src_filename, dst_filename, ticket)
-        #r = crail.get(socket, dst_filename, src_filename, ticket)
-        if r[-1] != u'\u0000':
-            crail.close(socket, ticket, p)
-            raise Exception("put failed: "+ dst_filename)
-    t1=time.time()
+    if type == "write":
+        pocket_write(p, jobid, iter, file_tmp)
+    elif type == "read":
+        pocket_read(p, jobid, iter, file_tmp)
+    elif type == "lookup":
+        pocket_lookup(p, jobid, iter)
+    else:
+        return "Illegal type"
 
 
     # upload network data
-    STOP.clear()
-    print cpu_util
-    print "tx:"
-    print rxbytes_per_s
-    print "rx:"
-    print txbytes_per_s
-    throughput = iter*datasize*8/(t1-t0)/1000
-    print "throughput (Gb/s) = " + str(throughput)
-    print "time (s) = " + str(t1-t0)
-    
-    '''
     timelogger = TimeLog(enabled=True)
-    startup_nodes = [{"host": "rediscluster.a9ith3.clustercfg.usw2.cache.amazonaws.com", "port": "6379"}]
+    startup_nodes = [{"host": "rediscluster-log.a9ith3.clustercfg.usw2.cache.amazonaws.com", "port": "6379"}]
     redis_client = StrictRedisCluster(startup_nodes=startup_nodes, skip_full_coverage_check=True)
     rclient = redis_client
     STOP.clear()
     upload_net_bytes(rclient, rxbytes_per_s, txbytes_per_s, cpu_util, timelogger, str(id))
-    '''
     
-    
-    # upload throughput data
-    '''
-    throughput = datasize/(t1-t0)
-    log = {'throughput':throughput}
-    file_tmp = '/tmp/tmp'
-    with open(file_tmp, "w") as f:
-        pickle.dump(log, f)
-    src_filename = file_tmp
-    dst_filename = '/throughput-logs-'+str(n)+'-'+str(id)
-    ## new file
-    r = crail.put(socket, src_filename, dst_filename, ticket)
-    if r[-1] != u'\u0000':
-        crail.close(socket, ticket, p)
-        raise Exception("put failed: "+ dst_filename)
-    '''
-
-
     os.remove(file_tmp)
-
-    crail.close(socket, ticket, p)
-
-    return 
+    return
 
