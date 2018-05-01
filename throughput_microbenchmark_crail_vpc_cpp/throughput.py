@@ -1,32 +1,42 @@
 import os
 import time
 import pocket
+import subprocess
 
 from rediscluster import StrictRedisCluster
 import threading
 import ifcfg
 import psutil
 
-def pocket_write(p, jobid, iter, src_filename):
+def pocket_write(p, jobid, iter, src_filename, id):
     for i in xrange(iter):
-        dst_filename = '/tmp'+'-'+str(i)
+        dst_filename = '/tmp'+str(id)+'-'+str(i)
         r = pocket.put(p, src_filename, dst_filename, jobid)
         #if r != 0:
         #    raise Exception("put failed: "+ dst_filename)
 
-def pocket_read(p, jobid, iter, src_filename):
+def pocket_read(p, jobid, iter, src_filename, id):
     for i in xrange(iter):
-        dst_filename = '/tmp'+'-'+str(i)
+        dst_filename = '/tmp'+str(id)+'-'+str(i)
         r = pocket.get(p, dst_filename, src_filename, jobid)
         #if r != 0:
         #    raise Exception("get failed: "+ dst_filename)
         
-def pocket_lookup(p, jobid, iter):
+def pocket_lookup(p, jobid, iter, id):
     for i in xrange(iter):
-        dst_filename = '/tmp'+'-'+str(i)
+        dst_filename = '/tmp'+str(id)+'-'+str(i)
         r = pocket.lookup(p, dst_filename, jobid)
         #if r != 0:
         #    raise Exception("lookup failed: "+ dst_filename)
+
+
+def pocket_write_buffer(p, jobid, iter, src, size, id):
+    for i in xrange(iter):
+        dst_filename = '/tmp'+str(id)+'-'+str(i)
+        r = pocket.put_buffer(p, src, size, dst_filename, jobid)  
+        #if r != 0:
+        #    raise Exception("put buffer failed: "+ dst_filename)
+
 
 def lambda_handler(event, context):
     id = int(event['id'])
@@ -73,16 +83,6 @@ def lambda_handler(event, context):
             util = psutil.cpu_percent(interval=1.0)
             cpu_util.append(util)
 
-    # start collecting network data
-    iface = ifcfg.default_interface()
-    rxbytes = [int(iface['rxbytes'])]
-    txbytes = [int(iface['txbytes'])]
-    rxbytes_per_s = []
-    txbytes_per_s = []
-    cpu_util = []
-    STOP.set()
-    timelogger = TimeLog(enabled=True)
-    get_net_bytes(rxbytes, txbytes, rxbytes_per_s, txbytes_per_s, cpu_util) 
     
     # create a file of size (datasize) bytes
     type = event['type']
@@ -95,11 +95,19 @@ def lambda_handler(event, context):
 
     # connect to pocket
     p = pocket.connect("10.1.129.91", 9070)
-    jobid = 'lambda3'
-    r = pocket.register_job(p, jobid) # works if return 0
-    if r != 0:
-        print "registration failed"
-        return
+    jobid = ""
+
+    # start collecting network data
+    iface = ifcfg.default_interface()
+    rxbytes = [int(iface['rxbytes'])]
+    txbytes = [int(iface['txbytes'])]
+    rxbytes_per_s = []
+    txbytes_per_s = []
+    cpu_util = []
+    STOP.set()
+    timelogger = TimeLog(enabled=True)
+    get_net_bytes(rxbytes, txbytes, rxbytes_per_s, txbytes_per_s, cpu_util) 
+
 
     if type == "write":
         pocket_write(p, jobid, iter, file_tmp)
@@ -107,6 +115,8 @@ def lambda_handler(event, context):
         pocket_read(p, jobid, iter, file_tmp)
     elif type == "lookup":
         pocket_lookup(p, jobid, iter)
+    elif type == "writebuffer":
+        pocket_write_buffer(p, jobid, iter, text, datasize)
     else:
         return "Illegal type"
 
@@ -118,7 +128,9 @@ def lambda_handler(event, context):
     rclient = redis_client
     STOP.clear()
     upload_net_bytes(rclient, rxbytes_per_s, txbytes_per_s, cpu_util, timelogger, str(id))
-    
+
     os.remove(file_tmp)
     return
+
+
 

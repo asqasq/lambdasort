@@ -26,10 +26,10 @@ def invoke_map_lambda(x, client):
 
 
 n = int(sys.argv[1])
-iter = 200
-datasize = 1024*1024
-#iter = 5000 #20000
-#datasize = 1024
+#iter = 200
+#datasize = 1024*1024
+iter = 5000 #20000
+datasize = 1024
 
 type = sys.argv[2]
 #type = 'write'
