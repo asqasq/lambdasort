@@ -1,6 +1,7 @@
 import boto3
 import os
 import time
+import pickle
 import pocket
 
 from rediscluster import StrictRedisCluster
@@ -14,64 +15,13 @@ def lambda_handler(event, context):
     bucket_name = str(event['bucket_name'])
     n_tasks = n
 
-    STOP = threading.Event()
-    LOGS_PATH = 'reduce-logs-' + str(n)
-
-    class TimeLog:
-        def __init__(self, enabled=True):
-            self.enabled = enabled
-            self.start = time.time()
-            self.prev = self.start
-            self.points = []
-            self.sizes = []
-
-        def add_point(self, title):
-            if not self.enabled:
-                  return
-            now = time.time()
-            self.points += [(title, now - self.prev)]
-            self.prev = now
-
-
-    def upload_net_bytes(rclient, rxbytes_per_s, txbytes_per_s, cpu_util, timelogger, reqid): 
-        #rclient = redis.Redis(host=REDIS_HOSTADDR_PRIV, port=6379, db=0)   
-        netstats = LOGS_PATH + '/netstats-' + reqid  
-        rclient.set(netstats, str({'lambda': reqid, 
-             'started': timelogger.start, 
-             'rx': rxbytes_per_s, 
-             'tx': txbytes_per_s, 
-             'cpu': cpu_util}).encode('utf-8')) 
-        print "wrote netstats" 
-        return 
- 
-    def get_net_bytes(rxbytes, txbytes, rxbytes_per_s, txbytes_per_s, cpu_util): 
-        SAMPLE_INTERVAL = 1.0 
-        # schedule the function to execute every SAMPLE_INTERVAL seconds 
-        if STOP.is_set(): 
-            threading.Timer(SAMPLE_INTERVAL, get_net_bytes, [rxbytes, txbytes, rxbytes_per_s, txbytes_per_s, cpu_util]).start()  
-            rxbytes.append(int(ifcfg.default_interface()['rxbytes'])) 
-            txbytes.append(int(ifcfg.default_interface()['txbytes'])) 
-            rxbytes_per_s.append((rxbytes[-1] - rxbytes[-2])/SAMPLE_INTERVAL) 
-            txbytes_per_s.append((txbytes[-1] - txbytes[-2])/SAMPLE_INTERVAL)  
-            util = psutil.cpu_percent(interval=1.0) 
-            cpu_util.append(util) 
-
-    # start collecting network data
-    iface = ifcfg.default_interface()
-    rxbytes = [int(iface['rxbytes'])]
-    txbytes = [int(iface['txbytes'])]
-    rxbytes_per_s = []
-    txbytes_per_s = []
-    cpu_util = []
-    STOP.set()
-    get_net_bytes(rxbytes, txbytes, rxbytes_per_s, txbytes_per_s, cpu_util)
-
     t0=time.time()
 
-    p = crail.launch_dispatcher_from_lambda()
-    socket = crail.connect()
-    ticket = 1001
-
+    # connect to crail
+    p = pocket.connect("10.1.0.10", 9070)
+    #jobid = "" 
+    jobid = str(event['id'])
+    
     #read from input file: shuffle<0 id> shuffle<1 id> ... shuffle<id num_workers-1>
     #'''
     file_tmp = '/tmp/tmp'
@@ -80,10 +30,10 @@ def lambda_handler(event, context):
         key = 'shuffle' + str(i) +'-'+ str(id)
         src_filename = '/' + key
         dst_filename = file_tmp
-        r = crail.get(socket, src_filename, dst_filename, ticket)
-        if r[-1] != u'\u0000':
-            crail.close(socket, ticket, p)
-            raise Exception("get failed: "+ src_filename)
+        r = pocket.get(p, dst_filename, src_filename, jobid)
+        if r != 0:
+            raise Exception("get failed: "+ dst_filename)
+            return  -1
         with open(file_tmp, "r") as f:
             all_lines+=f.readlines()
     os.remove(file_tmp)
@@ -91,14 +41,6 @@ def lambda_handler(event, context):
     
     t1 = time.time()
 
-    #upload network data
-    timelogger = TimeLog(enabled=True)
-    startup_nodes = [{"host": "rediscluster.a9ith3.clustercfg.usw2.cache.amazonaws.com", "port": "6379"}]
-    redis_client = StrictRedisCluster(startup_nodes=startup_nodes, skip_full_coverage_check=True)
-    rclient = redis_client
-    STOP.clear()
-    upload_net_bytes(rclient, rxbytes_per_s, txbytes_per_s, cpu_util, timelogger, str(id))
-    
     t1_2 = time.time()
 
     #'''
@@ -132,39 +74,22 @@ def lambda_handler(event, context):
         os.remove(file_tmp)
     t3=time.time()
 
+
     # upload log
-    log = {'id': id, 't0': t0, 't1': t1_2, 't2': t2, 't3': t3}
-    file_tmp = '/tmp/tmp'
-    with open(file_tmp, "w") as f:
-        pickle.dump(log, f)
-    src_filename = file_tmp
-    dst_filename = '/reduce-logs-100GB-'+str(n)+'-'+str(id)
-    ## new file
-    r = crail.put(socket, src_filename, dst_filename, ticket)
-    if r[-1] != u'\u0000':
-        crail.close(socket, ticket, p)
-        raise Exception("put failed: "+ dst_filename)
- 
-    log = [t1-t0, t2-t1_2, t3-t2, t1_2-t1]
-    file_tmp = '/tmp/tmp'
-    with open(file_tmp, "w") as f:
-        pickle.dump(log, f)
-    src_filename = file_tmp
-    dst_filename = '/reduce-results-100GB-'+str(n)+'-'+str(id)
-    ## new file
-    r = crail.put(socket, src_filename, dst_filename, ticket)
-    if r[-1] != u'\u0000':
-        crail.close(socket, ticket, p)
-        raise Exception("put failed: "+ dst_filename)
+    startup_nodes = [{"host": "rediscluster-log.a9ith3.clustercfg.usw2.cache.amazonaws.com", "port": "6379"}]
+    redis_client = StrictRedisCluster(startup_nodes=startup_nodes, skip_full_coverage_check=True)
+    
+    log = {'id': id, 't0': t0, 't1': t1_2, 't2': t2, 't3': t3}    
+    log_str = pickle.dumps(log)
+    key = '/reduce-log'+'-'+'100GB'+'-'+str(n)+'-'+str(id)
+    redis_client.set(key, log_srt)
 
-
-
-    crail.close(socket, ticket, p)
-    #return time (in sec) spent reading intermediate files
-    #return [t1-t0, t1_2-t1, t3-t2, t2-t1_2] #read shuffle, compute, write output 
+    #crail.close(socket, ticket, p)
+    
 
     r = 'reduce finished ' + str(id)
     print r
     return r
+
 
 
