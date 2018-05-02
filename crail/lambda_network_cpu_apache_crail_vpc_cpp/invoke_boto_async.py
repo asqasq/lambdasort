@@ -12,7 +12,7 @@ def invoke_map_lambda(x, client):
         try:
             client = boto3.client('lambda', config=config)
         except:
-            print 'Exception in map'
+            #print 'Exception in map'
             client = None    
     client.meta.events._unique_id_handlers['retry-config-lambda']['handler']._checker.__dict__['_max_attempts'] = 0 
     response = client.invoke(FunctionName=f,
@@ -31,7 +31,7 @@ def invoke_reduce_lambda(x, client):
         try:
             client = boto3.client('lambda', config=config)
         except:
-            print 'Exception in reduce'
+            #print 'Exception in reduce'
             client = None    
     client.meta.events._unique_id_handlers['retry-config-lambda']['handler']._checker.__dict__['_max_attempts'] = 0
     response = client.invoke(FunctionName=f,

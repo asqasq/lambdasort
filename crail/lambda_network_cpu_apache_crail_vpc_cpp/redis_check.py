@@ -88,10 +88,14 @@ def reduce_avg(redis_client, n):
 
 def wait_log(n, log_name):
     num_keys = 0
-    while num_keys == n:
+    old_num_keys = 0 
+    while num_keys < n:
         keys = redis_client.keys(pattern="*"+log_name+"*")
         num_keys = len(keys)
-    	print str(num_keys) + " " + str(n)
+ 	time.sleep(1)
+	if num_keys != old_num_keys: 
+	    print str(num_keys) + " lambdas out of " + str(n) + " finished"
+	    old_num_keys = num_keys
     return 
 
 if __name__ == '__main__':

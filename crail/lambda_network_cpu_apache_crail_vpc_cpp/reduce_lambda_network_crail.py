@@ -82,7 +82,8 @@ def lambda_handler(event, context):
     log = {'id': id, 't0': t0, 't1': t1_2, 't2': t2, 't3': t3}    
     log_str = pickle.dumps(log)
     key = '/reduce-log'+'-'+'100GB'+'-'+str(n)+'-'+str(id)
-    redis_client.set(key, log_srt)
+    redis_client.set(key, log_str)
+    print key + " logged" 
 
     #crail.close(socket, ticket, p)
     
