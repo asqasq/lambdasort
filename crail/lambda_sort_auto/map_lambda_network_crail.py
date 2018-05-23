@@ -10,11 +10,22 @@ import ifcfg
 import psutil
 
 def lambda_handler(event, context):
+    '''
+    p = pocket.connect("10.1.0.10", 9070)
+    #print pocket.create_dir(p, 'sort', "")
+    jobid = str(event['jobid']) #'sort'
+    print pocket.put(p, 'pocket.py', 'tmp3', jobid)
+    return
+    '''
+    
     id = int(event['id'])
     n = num_workers = int(event['n'])
     bucket_name = str(event['bucket_name'])
     path = str(event['path'])
     n_tasks = n
+
+
+    log_file = []
 
     t0=time.time()
 
@@ -22,7 +33,7 @@ def lambda_handler(event, context):
     s3 = boto3.resource('s3')
     file_local = '/tmp/input_tmp'
     lines = []
-    # read 4 100MB files
+    # read m 100MB files
     m = 1000/n_tasks
     for i in xrange(m):
         i += id*m
@@ -50,9 +61,9 @@ def lambda_handler(event, context):
 
     #write to output files: shuffle<id 0> shuffle<id 1> shuffle<id num_workers-1>     
     # connect to crail
-    p = pocket.connect("10.1.0.10", 9070)
-    #jobid = ""
-    jobid = str(event['id'])
+    p = pocket.connect("10.1.12.156", 9070)
+    #jobid = str(event['jobid']) #'sort'
+    jobid = ""
 
     file_tmp = file_local
     for i in xrange(n_tasks):
@@ -65,6 +76,8 @@ def lambda_handler(event, context):
         if r != 0:
             raise Exception("put failed: "+ dst_filename)
             return -1
+        #log_file.append((key, time.time()))
+        
     t3=time.time()
 
 
@@ -77,7 +90,13 @@ def lambda_handler(event, context):
     key = '/map-log'+'-'+'100GB'+'-'+str(n)+'-'+str(id)
     redis_client.set(key, log_str)
     print key + " logged" 
- 
+    
+    ''' 
+    log_file_str = pickle.dumps(log_file)
+    key = '/map-log-time'+'-'+'100GB'+'-'+str(n)+'-'+str(id)
+    redis_client.set(key, log_file_str)
+    print key + " logged" 
+    '''
     os.remove(file_tmp)
 
     #crail.close(socket, ticket, p)
@@ -86,6 +105,7 @@ def lambda_handler(event, context):
     r = 'map finished ' + str(id)
     print r
     return r
+
 
 
 
