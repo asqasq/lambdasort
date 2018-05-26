@@ -10,14 +10,6 @@ import ifcfg
 import psutil
 
 def lambda_handler(event, context):
-    '''
-    p = pocket.connect("10.1.0.10", 9070)
-    #print pocket.create_dir(p, 'sort', "")
-    jobid = str(event['jobid']) #'sort'
-    print pocket.put(p, 'pocket.py', 'tmp3', jobid)
-    return
-    '''
-    
     id = int(event['id'])
     n = num_workers = int(event['n'])
     bucket_name = str(event['bucket_name'])
@@ -61,9 +53,12 @@ def lambda_handler(event, context):
 
     #write to output files: shuffle<id 0> shuffle<id 1> shuffle<id num_workers-1>     
     # connect to crail
-    p = pocket.connect("10.1.12.156", 9070)
+    #p = pocket.connect("10.1.12.156", 9070)
+    p = pocket.connect("10.1.0.10", 9070)
     #jobid = str(event['jobid']) #'sort'
     jobid = ""
+    
+    #print "connected"
 
     file_tmp = file_local
     for i in xrange(n_tasks):
@@ -71,7 +66,7 @@ def lambda_handler(event, context):
             f.writelines(p_list[i])
         key = 'shuffle' + str(id) +'-'+ str(i)
         src_filename = file_tmp
-        dst_filename = '/' + key
+        dst_filename = key
         r = pocket.put(p, src_filename, dst_filename, jobid)
         if r != 0:
             raise Exception("put failed: "+ dst_filename)
@@ -80,6 +75,7 @@ def lambda_handler(event, context):
         
     t3=time.time()
 
+    print "ready to upload log"
 
     # upload log
     startup_nodes = [{"host": "rediscluster-log.a9ith3.clustercfg.usw2.cache.amazonaws.com", "port": "6379"}]

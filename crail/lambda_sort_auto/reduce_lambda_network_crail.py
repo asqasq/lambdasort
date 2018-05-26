@@ -10,12 +10,6 @@ import ifcfg
 import psutil
 
 def lambda_handler(event, context):
-    '''
-    p = pocket.connect("10.1.0.10", 9070)
-    jobid = str(event['jobid'])#'sort'
-    print pocket.get(p, 'shuffle1-2', '/tmp/tmp', jobid)
-    return 
-    '''
     id = int(event['id'])
     n = num_workers = int(event['n'])
     bucket_name = str(event['bucket_name'])
@@ -26,8 +20,10 @@ def lambda_handler(event, context):
     t0=time.time()
 
     # connect to crail
-    p = pocket.connect("10.1.12.156", 9070)
-    
+    #p = pocket.connect("10.1.12.156", 9070)
+    p = pocket.connect("10.1.0.10", 9070)
+    print "connected"
+
     jobid = "" 
     #jobid = str(event['id'])
     
@@ -36,23 +32,26 @@ def lambda_handler(event, context):
     file_tmp = '/tmp/tmp'
     all_lines = []
     for i in xrange(n_tasks):
-        key = 'shuffle' + str(id) +'-'+ str(i)
-        #key = 'shuffle' + str(i) +'-'+ str(id)
-        src_filename = '/' + key
+        #key = 'shuffle' + str(id) +'-'+ str(i) # wrong one just for testing
+        key = 'shuffle' + str(i) +'-'+ str(id)
+        
+        src_filename = key
         dst_filename = file_tmp
+        #print src_filename
         r = pocket.get(p, src_filename, dst_filename, jobid)
         if r != 0:
-            raise Exception("get failed: "+ dst_filename)
+            raise Exception("get failed: "+ src_filename)
             return  -1
         #log_file.append((key, time.time()))
-        with open(file_tmp, "r") as f:
+        with open(dst_filename, "r") as f:
             all_lines+=f.readlines()
+        #print src_filename + " read success"
     os.remove(file_tmp)
     #'''
     
     t1 = time.time()
+    #print "read all from pocket"
 
-    #'''
     #merge & sort 
     for i in xrange(len(all_lines)):
         all_lines[i] = (all_lines[i][:10], all_lines[i][12:])
@@ -61,7 +60,6 @@ def lambda_handler(event, context):
 
     for i in xrange(len(all_lines)):
         all_lines[i] = all_lines[i][0]+"  "+all_lines[i][1]
-    #'''
     t2=time.time()
 
 
