@@ -8,38 +8,87 @@ import threading
 import ifcfg
 import psutil
 
+from subprocess import Popen, PIPE
 
-def redis_write(rclient, iter, data):
+
+def redis_write(rclient, id, iter, data):
     for i in xrange(iter):
-        key = '/tmp'+'-'+str(i)
-        rclient.set(key, data)
+        key = '/tmp'+id+'-'+str(i)
+        result = rclient.set(key, data)
         #if result != True:
         #    return -1
 
-def redis_read(rclient, iter):
+def redis_read(rclient, id, iter):
     for i in xrange(iter):
-        key = '/tmp'+'-'+str(i)
-        rclient.get(key)
+        key = '/tmp'+id+'-'+str(i)
+        result = rclient.get(key)
         #if result == None:
+        #    print "error"
         #    return -1
 
-def s3_write(s3_client, iter, data):
+def s3_write(s3_client, id, iter, data):
     bucket_name = "s3-microbenchmark"
     for i in range(iter):
-        key = '/tmp'+'-'+str(i)
+        key = '/tmp'+id+'-'+str(i)
         result = s3_client.put_object(
             Bucket = bucket_name,
             Body = data,
             Key = key
         )
 
-def s3_read(s3_client, iter):
+def s3_read(s3_client, id, iter):
     bucket_name = "s3-microbenchmark"
     for i in range(iter):
-        key = '/tmp'+'-'+str(i)
+        key = '/tmp'+id+'-'+str(i)
         body = s3_client.get_object(Bucket=bucket_name, Key=key)['Body'].read()
         #if body == None:
-        #    return -1
+            #print "error"
+            #return -1
+
+def test_redis():
+    # connect to redis
+    startup_nodes = [{"host": "rediscluster.a9ith3.clustercfg.usw2.cache.amazonaws.com", "port": "6379"}]
+    redis_client = StrictRedisCluster(startup_nodes=startup_nodes, skip_full_coverage_check=True)
+
+    #redis_client = StrictRedisCluster(startup_nodes=startup_nodes, skip_full_coverage_check=True, decode_responses=True)
+    if type == 'write':
+   	redis_write(redis_client, str(id), iter, text)
+    elif type == 'read': 
+        redis_read(redis_client, str(id), iter)
+    else:
+	return "Illegal type" 
+ 
+def test_s3():
+    #connect to s3
+    s3_client = boto3.client('s3')
+    if type == 'write':
+   	s3_write(s3_client, str(id), iter, text)
+    elif type == 'read': 
+        s3_read(s3_client, str(id), iter)
+    else:
+	return "Illegal type"
+
+def test_redis_cli():
+    if type == 'write':
+        cmd = "./redis-cli -h redis.a9ith3.0001.usw2.cache.amazonaws.com -p 6379 \
+                            -r "+str(iter)+" -x set bar" 
+        #cmd = "./redis-cli -c -h rediscluster.a9ith3.clustercfg.usw2.cache.amazonaws.com -p 6379 \
+        #                    -r "+str(iter)+" -x set bar"
+        print cmd
+        input = open(file_tmp)
+        p = Popen(cmd.split(), stdin=input, stdout=PIPE)
+    elif type == 'read': 
+        cmd = "./redis-cli -h redis.a9ith3.0001.usw2.cache.amazonaws.com -p 6379 \
+                            -r "+str(iter)+" get bar"        
+        #cmd = "./redis-cli -c -h rediscluster.a9ith3.clustercfg.usw2.cache.amazonaws.com -p 6379 \
+        #                    -r "+str(iter)+" get bar"
+        print cmd
+        p = Popen(cmd.split(), stdout=PIPE)
+    else:
+        return "Illegal type"  
+    
+    result = p.communicate()[0]
+    #print result 
 
 def lambda_handler(event, context):
     id = int(event['id'])
@@ -108,29 +157,12 @@ def lambda_handler(event, context):
         text = 'a'*datasize 
         f.write(text)
 
-    #'''
-    # connect to redis
-    startup_nodes = [{"host": "rediscluster.a9ith3.clustercfg.usw2.cache.amazonaws.com", "port": "6379"}]
-    redis_client = StrictRedisCluster(startup_nodes=startup_nodes, skip_full_coverage_check=True)
-    if type == 'write':
-	redis_write(redis_client, iter, text)
-    elif type == 'read': 
-        redis_read(redis_client, iter)
-    else:
-	return "Illegal type" 
-    #'''
-    
-    '''
-    #connect to s3
-    s3_client = boto3.client('s3')
-    if type == 'write':
-	s3_write(s3_client, iter, text)
-    elif type == 'read': 
-        s3_read(s3_client, iter)
-    else:
-	return "Illegal type"
-    '''
- 
+    # microbenchmark different storage 
+    test_redis_cli()
+    #test_redis()
+    #test_s3()
+
+
     # upload network data
     timelogger = TimeLog(enabled=True)
     startup_nodes = [{"host": "rediscluster-log.a9ith3.clustercfg.usw2.cache.amazonaws.com", "port": "6379"}]
@@ -141,6 +173,8 @@ def lambda_handler(event, context):
     
     os.remove(file_tmp)
 
-    return 
+    return "fnished"
+
+
 
 
