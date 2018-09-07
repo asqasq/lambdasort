@@ -117,9 +117,9 @@ def put(pocket, src_filename, dst_filename, jobid, PERSIST_AFTER_JOB=False):
   '''
 
   if PERSIST_AFTER_JOB:
-    set_filename = jobid + "-persist/" + dst_filename
+    set_filename = "/" + jobid + "-persist/" + dst_filename
   else:
-    set_filename = jobid + "/" + dst_filename
+    set_filename = "/" + jobid + "/" + dst_filename
 
   res = pocket.PutFile(src_filename, set_filename, False)
 
@@ -139,11 +139,11 @@ def put_buffer(pocket, src, len, dst_filename, jobid, PERSIST_AFTER_JOB=False):
   '''
 
   if PERSIST_AFTER_JOB:
-    set_filename = jobid + "-persist/" + dst_filename
+    set_filename = "/" + jobid + "-persist/" + dst_filename
   else:
-    set_filename = jobid + "/" + dst_filename
+    set_filename = "/" + jobid + "/" + dst_filename
 
-  res = pocket.PutBuffer(src, len, set_filename, True)
+  res = pocket.PutBuffer(src, len, set_filename, False)
 
   return res
 
@@ -160,7 +160,7 @@ def get(pocket, src_filename, dst_filename, jobid, DELETE_AFTER_READ=False):
   :return: the Pocket dispatcher response 
   '''
 
-  get_filename = jobid + "/" + src_filename
+  get_filename = "/" + jobid + "/" + src_filename
 
   res = pocket.GetFile(get_filename, dst_filename)
   if res != 0:
@@ -185,7 +185,7 @@ def get_buffer(pocket, src_filename, dst, len, jobid, DELETE_AFTER_READ=False):
   :return: the Pocket dispatcher response 
   '''
 
-  get_filename = jobid + "/" + src_filename
+  get_filename = "/" + jobid + "/" + src_filename
 
   res = pocket.GetBuffer(dst, len, get_filename)
   if res != 0:
@@ -208,7 +208,7 @@ def lookup(pocket, src_filename, jobid):
   :return: the Pocket dispatcher response 
   '''
 
-  get_filename = jobid + "/" + src_filename
+  get_filename = "/"+jobid + "/" + src_filename
 
   res = pocket.Lookup(get_filename)
   if res != 0:
@@ -229,9 +229,9 @@ def delete(pocket, src_filename, jobid):
   '''
   
   if src_filename:
-    src_filename = jobid + "/" + src_filename
+    src_filename = "/" + jobid + "/" + src_filename
   else:
-    src_filename = jobid
+    src_filename = "/" + jobid
 
   res = pocket.DeleteDir(src_filename) #FIXME: or DeleteDir if want recursive delete always?? 
   
