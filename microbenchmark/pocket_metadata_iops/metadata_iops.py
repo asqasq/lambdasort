@@ -85,15 +85,13 @@ def lambda_handler(event, context):
      
 
     # upload network data
-    timelogger = TimeLog(enabled=True)
     redis_host = "rediscluster-log.a9ith3.clustercfg.usw2.cache.amazonaws.com"
     startup_nodes = [{"host": redis_host, "port": "6379"}]
     redis_client = StrictRedisCluster(startup_nodes=startup_nodes, skip_full_coverage_check=True)
     rclient = redis_client
     STOP.clear()
-    rxbytes_per_s = [1]*len(req_per_s)
-    txbytes_per_s = [1]*len(req_per_s)
-    upload_net_bytes(rclient, rxbytes_per_s, txbytes_per_s, req_per_s, timelogger, str(id))
+    place_holder = [1]*len(req_per_s)
+    upload_net_bytes(rclient, req_per_s, place_holder, place_holder, timelogger, str(id))
     print "iops stats uploaded"
 
 
